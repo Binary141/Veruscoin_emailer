@@ -3,47 +3,35 @@ import json
 import smtplib, ssl
 from time import sleep
 
-while True:
+#For the emailer program to work, you will need to create an app password for the gmail account to make it easier to revoke access from your
+# account in the future. Google has a guide here: https://support.google.com/mail/answer/185833?hl=en-GB
+
+while True: #this way it will run indefinitely inside of a docker container
 
 #--------------------- Variable declaration
-    f = open('config.json')
-
-    data = json.load(f)
-
     smtp_server = "smtp.gmail.com"
     port = 587  # For starttls
-    sender_email = data['email_details'][0]['sender_email']
-    recipient_email = data['email_details'][0]['recipient_email'] 
-    password_email = data['email_details'][0]['email_password']
-
+    sender_email = "example@gmail.com"
+    recipient_email = "example@gmail.com"  
+    password_email = "APP_PASSWORD"
+    miner_wallet = "RNX1d1T5nXvJVx6xy4ifc2kBahXpracX8S" #Verus coin wallet
 # Create a secure SSL context
     context = ssl.create_default_context()
-
-    Active_worker_list = []
     Offline_workers = ""
+    Request_URL = "https://luckpool.net/verus/miner/" + miner_wallet #data['miner_details']... is the wallet from the JSON file
 
-    Request_URL = "https://luckpool.net/verus/miner/" + data['miner_details'][0]['miner_wallet'] #data['miner_details']... is the wallet from the JSON file
-
-    miners = data['miner_details'][0]['miner_name'].split()
-#compare this list to the list that is returned in the get request
 #--------------------- End Variable declaration
-
-
     for i in requests.get(Request_URL).json()['workers']:
-        temp = ""
-        for letter in range(len(i)):
-            if i[letter] != ":":
-                temp += i[letter]
-            else:
-                Active_worker_list.append(temp)
-                break
+        temp = i.split(':')
+        if(temp[3] == "off"):
+            print(temp[0])
+            Offline_workers += temp[0]
+            Offline_workers += ","
 
-    for worker in miners:
-        if worker not in Active_worker_list:
-            Offline_workers += worker
-            #can check to see if the worker is being picked up as offline
-            #print(worker, " Not working")
-    if(Offline_workers != ""):
+    if(Offline_workers != ""): #As long as the list isn't empty, it will run this to send the email
+        if(Offline_workers[-1] == ','): #removes trailing comma from the email subject if the list is not empty
+            Offline_workers = Offline_workers[:-1]
+
 # Try to log in to server and send email
         try:
             server = smtplib.SMTP(smtp_server,port)
@@ -60,12 +48,11 @@ while True:
 
             print("The email was sent")
         except Exception as e:
-            # Print any error messages
+            # Print any error messages. Printing will keep the program running in case there is an error
             print(e)
         finally:
             server.quit() 
     else:
         print("No email was sent")
 
-    f.close()
     sleep(900)
